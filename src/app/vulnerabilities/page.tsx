@@ -6,7 +6,7 @@ import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import React from 'react'
 import { VulnerabilityDialog } from "./vulnerability-dialog"
-import { vulnerabilityApi } from './api'
+import { useVulnerabilities } from '@/hooks/use-vulnerabilities'
 
 const emptyVulnerability: Omit<Vulnerability, 'id'> = {
   title: '',
@@ -30,12 +30,20 @@ const emptyVulnerability: Omit<Vulnerability, 'id'> = {
 }
   
 export default function VulnerabilitiesOverviewPage() {
-  const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
+  const { 
+    vulnerabilities,
+    fetchVulnerabilities,
+    createVulnerability,
+    updateVulnerability,
+    deleteVulnerability,
+    updateState
+  } = useVulnerabilities()
+
   const [selectedVulnerability, setSelectedVulnerability] = useState<Vulnerability | null>(null)
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('view')
 
   useEffect(() => {
-    vulnerabilityApi.getAll().then(setVulnerabilities)
+    fetchVulnerabilities()
   }, [])
 
   const handleClickRow = (row: Vulnerability) => {
@@ -50,15 +58,10 @@ export default function VulnerabilitiesOverviewPage() {
 
   const handleSave = async (vulnerability: Vulnerability) => {
     if (mode === 'create') {
-      const vulnerabilityWithoutId = Object.fromEntries(
-        Object.entries(vulnerability).filter(([key]) => key !== 'id')
-      ) as Omit<Vulnerability, 'id'>
-      await vulnerabilityApi.create(vulnerabilityWithoutId)
-      await vulnerabilityApi.getAll().then(setVulnerabilities)
-    } else if (mode === 'edit') {
-      console.log(vulnerability)
-      await vulnerabilityApi.update(vulnerability.id, vulnerability)
-      await vulnerabilityApi.getAll().then(setVulnerabilities)
+      const { ...vulnerabilityWithoutId } = vulnerability
+      await createVulnerability(vulnerabilityWithoutId)
+    } else {
+      await updateVulnerability(vulnerability.id, vulnerability)
     }
   }
 
@@ -71,12 +74,12 @@ export default function VulnerabilitiesOverviewPage() {
               setMode('edit')
             },
             onDelete: async (id) => {
-              await vulnerabilityApi.delete(id)
-              setVulnerabilities(vulnerabilities.filter(v => v.id !== id))
+              await deleteVulnerability(id)
             },
             onStateChange: () => {
-              vulnerabilityApi.getAll().then(setVulnerabilities)
-            }
+              fetchVulnerabilities()
+            },
+            updateState: updateState
           })} 
           data={vulnerabilities} 
           onRowSelect={handleClickRow}
